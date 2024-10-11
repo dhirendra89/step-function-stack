@@ -13,7 +13,8 @@ export class StepFunctionStackStack extends cdk.Stack {
     super(scope, id, props);
 
     // Resource(s)
-    const lambda_function = this.greet_lambda_function(this);
+    const layer = this.createLambdaLayer(this);
+    const lambda_function = this.greet_lambda_function(this, layer);
 
     // Tasks
     const greet_job = this.greet_job(this, lambda_function);
@@ -28,11 +29,13 @@ export class StepFunctionStackStack extends cdk.Stack {
 
   }
 
-  greet_lambda_function(stack: cdk.Stack): lambda.Function {
+  greet_lambda_function(stack: cdk.Stack, layer: lambda.LayerVersion): lambda.Function {
     return new lambda.Function(stack, 'GreetLambda', {
       code: lambda.Code.fromAsset(path.join(__dirname, 'functions')),
       handler: 'greet_lambda.handler',
       runtime: lambda.Runtime.NODEJS_20_X,
+      layers: [layer],
+      timeout: cdk.Duration.minutes(1)
     })
   }
 
@@ -56,7 +59,7 @@ export class StepFunctionStackStack extends cdk.Stack {
 
   create_rule(stack: cdk.Stack) {
     return new events.Rule(stack, 'StepFunctionScheduler', {
-      schedule: events.Schedule.rate(cdk.Duration.minutes(1)),
+      schedule: events.Schedule.rate(cdk.Duration.minutes(5)),
       enabled: true
     })
   }
@@ -65,4 +68,11 @@ export class StepFunctionStackStack extends cdk.Stack {
     rule.addTarget(new targets.SfnStateMachine(state_machine));
   }
 
+  createLambdaLayer(stack: cdk.Stack): lambda.LayerVersion {
+    return new lambda.LayerVersion(stack, 'nodejs-layer', {
+      compatibleRuntimes: [lambda.Runtime.NODEJS_20_X],
+      compatibleArchitectures: [lambda.Architecture.X86_64],
+      code: lambda.Code.fromAsset(path.join(__dirname, 'layers'))
+    })
+  }
 }
